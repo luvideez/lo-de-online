@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Dự đoán lô đề</title>
+<title>Lô đề online</title>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
@@ -126,7 +126,7 @@
     <label for="date">Ngày kiểm tra:</label>
     <input type="date" id="date" name="date" min="<?php echo date('Y-m-d', strtotime('+1 day')); ?>" required>
 
-    <label for="number">Số may mắn do bạn chọn (khác 0):</label>
+    <label for="number">Số may mắn (khác 0):</label>
     <input type="number" id="number" name="number" min="1" required>
 
     <div class="button-container2">
@@ -168,33 +168,42 @@
     // Chuyển đổi định dạng ngày sang dd-mm-yyyy
     $dateToUseFormatted = date("d-m-Y", strtotime($dateToUse));
 
-    // Tính toán tỷ lệ chính xác
+    // Lấy dữ liệu kết quả xổ số từ file JSON
     $dataUrl = "https://raw.githubusercontent.com/khiemdoan/vietnam-lottery-xsmb-analysis/refs/heads/main/data/xsmb-2-digits.json";
     $jsonData = file_get_contents($dataUrl);
     $data = json_decode($jsonData, true);
 
-    $count = 0;
-    $total = 0;
+    // Tính toán tỷ lệ chính xác từ trước đến nay
+    $successfulPredictions = 0;
+    $totalDays = 0;
 
     foreach ($data as $entry) {
-      $total++;
-      $dailyMatches = 0;
-
-      foreach ($entry as $key => $value) {
-        if ($key !== "date") {
-          $formattedValue = (strlen($value) == 1) ? "0" . $value : $value;
-          if ($formattedValue == $luckyNumber) {
-            $dailyMatches++;
+      $totalDays++;
+      $historicalDate = date("dmY", strtotime($entry['date']));
+      $historicalResult = ($historicalDate * $number * 142857) / (365.25 * pi());
+      $historicalLuckyNumber = round($historicalResult);
+      $historicalLuckyNumber = substr($historicalLuckyNumber, -2);
+      $match = false;
+      foreach ($entry as $prize => $numbers) {
+          if ($prize !== 'date') {
+              if (!is_array($numbers)) {
+                  $numbers = [$numbers];
+              }
+              foreach ($numbers as $number_item) {
+                  $formattedNumber = (strlen($number_item) == 1) ? "0" . $number_item : $number_item;
+                  if ($formattedNumber == $historicalLuckyNumber) {
+                      $match = true;
+                      break;
+                  }
+              }
           }
-        }
       }
-
-      if ($dailyMatches > 0) {
-        $count++;
+      if ($match) {
+          $successfulPredictions++;
       }
     }
 
-    $accuracy = ($total > 0) ? ($count / $total) * 100 : 0;
+    $accuracyAllTime = ($totalDays > 0) ? ($successfulPredictions / $totalDays) * 100 : 0;
 
     // Hiển thị kết quả
     echo "
@@ -202,10 +211,9 @@
         <h3>Kết quả:</h3>
         <p>Ngày áp dụng: " . $dateToUseFormatted . "</p>
         <p><span class='label'>Số may mắn: </span><span class='result-highlight'>" . $luckyNumber . "</span></p>
-        <h3>Tỷ lệ chính xác (theo ngày):</h3>
-        <p><span class='label'>Trên tổng số " . $total . " ngày, số may mắn xuất hiện ít nhất một lần trong " . $count . " ngày. Tỷ lệ chiến thắng dựa theo con số may mắn của bạn: </span><span class='result-highlight'>" . number_format($accuracy, 2) . "%</span></p>
-        <center><h3>Con số may mắn bạn đã chọn là: ".$number."</h3>
-        </center>
+        <h3>Tỷ lệ chính xác (từ trước đến nay):</h3>
+        <p><span class='label'>Dựa trên số may mắn đã chọn và áp dụng công thức tính cho tất cả các ngày trong lịch sử, tỷ lệ dự đoán chính xác là: </span><span class='result-highlight'>" . number_format($accuracyAllTime, 2) . "%</span></p>
+        <h3>Con số may mắn mà bạn đã chọn là: ".$number."</h3>
     </div>
     ";
   }
